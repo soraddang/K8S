@@ -1,0 +1,67 @@
+<<deployment-exam.yaml>>
+----------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deploy
+spec:
+  selector:
+    matchLabels:
+      app: webui
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: webui
+    spec:
+      containers:
+      - image: nginx:1.14
+        name: web
+        ports:
+        - containerPort: 80
+
+----------------------------------------
+<<Deployment 생성>>
+kubectl create -f deployment-exam1.yaml
+kubectl rollout history deployment app-deploy
+ * 이전 업데이트 기록이 출력되지 않음 
+
+kubectl delete -f deployment-exam1.yaml
+kubectl create -f deployment-exam1.yaml --record
+
+<<Rolling update>>
+kubectl set image deploy <deploy_name> <container_name>=<new_version_image>
+==> 컨테이너 이미지 업데이트 
+==> 새로운 Replicaset 이 만들어지면서 새로운 버전의 pod가 생성 
+
+kubectl set image deploy app-deploy web=nginx:1.15 --record
+  //Web 이름을 가진 container 버전을 1.15버전으로 업데이트되면서 이전 버전 정보 기록 
+kubectl set image deploy app-deploy web=nginx:1.16 --record
+kubectl set image deploy app-deploy web=nginx:1.17 --record
+
+<<controlling rolling update 일시 정지/재시작/과정확인>>
+kubectl rollout pause deploy app-deploy
+  //롤링 업데이트 일시정지(운영상태 확인이 목적)
+kubectl rollout resume deploy app-deploy
+  //롤링 업데이트 재시작
+kubectl rollout status deploy app-deploy
+ // 롤링 업데이트 상태 확인 
+kubectl rollout history deployment app-deploy
+ //버전업데이트 상태 확인 
+
+<<RollBack>>
+kubectl rollout history deployment <deploy_name>
+kubectl rollout undo deploy <deploy_name>
+
+kubectl rollout history deployment app-deploy
+kubectl rollout undo deploy app-deploy
+//이전 버전으로 (history 기준 한 단계 이전)
+kubectl describe pods app-deploy-XXXX-XXXX
+
+kubectl rollout undo deploy app-deploy --to-revision=3
+ //--to-revision 값으로 롤백 
+kubectl describe pods app-deploy-XXXX-XXXX
+
+
+<<deploy 삭제>>
+kubectl delete deploy app-deploy
