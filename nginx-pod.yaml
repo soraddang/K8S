@@ -1,0 +1,58 @@
+ex1. nginx-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.14
+    ports:
+    - containerPort: 80
+      protocol: TCP
+
+----------------------------------
+watch  kubectl get pods –o wide
+kubectl create -f pod-nginx.yaml 
+kubect get pods –o wide
+kubectl describe pod nginx-pod
+kubectl delete pod nginx-pod
+-----------------------------------
+
+ex2. pod-multi.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multipod
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.14
+    ports:
+    - containerPort: 80
+  - name: ubuntu-container
+    image: ubuntu:24.04
+    command:
+    - sleep
+    - "10000"
+
+----------------------------------
+watch  kubectl get pods –o wide
+kubectl create -f pod-multi.yaml 
+kubect get pods –o wide
+kubectl describe pod multipod
+
+kubectl exec multipod –c nginx-container  -it  -- /bin/bash
+cat /etc/os-release
+exit
+
+kubectl exec multipod –c nginx-container –it -- /bin/bash
+cd /usr/share/nginx/html
+echo “Hello~ Web” > index.thml
+cat index.html
+exit
+
+kubectl delete pod multipod
+-----------------------------------
