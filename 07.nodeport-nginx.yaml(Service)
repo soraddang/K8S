@@ -1,0 +1,51 @@
+<<nodeport-nginx.yaml>>
+---------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodeport-service
+spec:
+  type: NodePort
+  clusterIP: 10.100.100.100
+  selector:
+    app: webui
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 30200
+
+----------------------------------------------
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodeport-service
+spec:
+  type: NodePort
+  clusterIP: 10.100.100.100  //생략 가능, 생략시 랜덤하게 생성 
+  selector:
+    app: webui
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 30200    //생략 가능, 생략시 ~ 범위에서 생성
+
+---------------------------
+
+<<master node>>
+kubectl delete service --all
+kubectl create -f nodeport-nginx.yaml
+kubectl get svc
+
+<<work node1/2/3>>
+netstat -napt | grep 30200
+exit
+
+
+<<client에서 접속>>
+curl 10.100.100.200:30200    또는     curl node1:30200
+
+kubectl describe svc nodeport-service
+kubectl delete svc nodeport-service
