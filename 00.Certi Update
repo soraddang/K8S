@@ -1,0 +1,19 @@
+kubeadm certs check-expiration
+kubeadm certs renew all
+kubeadm init phase kubeconfig all
+kubeadm certs check-expiration
+systemctl restart kubelet
+systemctl status kubelet
+kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes
+mkdir -p ~/.kube
+cp /etc/kubernetes/admin.conf ~/.kube/config
+chmod 600 ~/.kube/config
+chown $(id -u):$(id -g) ~/.kube/config
+
+kubectl config get-contexts
+kubectl config use-context kubernetes-admin@kubernetes
+kubectl cluster-info
+kubectl get nodes -o wide
+reboot -> master, worker01 ~ 03 all reboot (init 6)
+kubectl get nodes -o wide
+kubeadm certs check-expiration
