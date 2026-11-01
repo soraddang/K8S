@@ -1,0 +1,56 @@
+<<resource1.yaml>>
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resources1
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.14
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources:
+      requests:
+        memory: 500Mi
+        cpu: 1
+
+==> 최소 CPU 1코어와 메모리 500Mi를 보장받을 수 있는 노드에만 스케줄링
+  
+<<resource2.yaml>>
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resources2
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.14
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources:
+      limits:
+        memory: 500Mi
+        cpu: 1
+
+==> Pod는 메모리는 최대 500Mi, CPU는 최대 1코어까지만 사용
+--------------------------
+<<resources3.yaml>>
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resources3
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.14
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources:
+      requests:
+        memory: 500Mi
+        cpu: 8
+
+  ==> 이 Pod는 최소 메모리 500Mi와 CPU 8코어를 보장받을 수 있는 노드에만 배치
