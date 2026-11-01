@@ -1,0 +1,66 @@
+wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml -O metrics-server.yaml
+
+<< metrics-server.yaml>>
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-server
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      k8s-app: metrics-server
+  template:
+    metadata:
+      labels:
+        k8s-app: metrics-server
+    spec:
+      containers:
+      - name: metrics-server
+        image: registry.k8s.io/metrics-server/metrics-server:v0.7.2
+        imagePullPolicy: IfNotPresent
+        args:
+          - --cert-dir=/tmp 
+          - --secure-port=4443                                                 //수정
+          - --kubelet-preferred-address-types=InternalIP,Hostname,InternalDNS  //추가
+          - --kubelet-use-node-status-port
+          - --metric-resolution=15s
+          - --kubelet-insecure-tls    //추가
+
+           // metrics-server가 내부 IP 기반으로 kubelet에 접근하고, 인증서 검증이 완료되면 15초 주기로 메트릭을 수집
+
+         ports:
+         - containerPort: 4443        //추가 
+
+
+------------------------------------------------
+kubectl apply -f metrics-server.yaml
+
+<<설치확인 1>>
+root@master:~# kubectl get pod -n kube-system
+NAME                              READY   STATUS    RESTARTS        AGE
+coredns-7c65d6cfc9-wc8ts          1/1     Running   3 (7h1m ago)    4d7h
+coredns-7c65d6cfc9-x68p2          1/1     Running   3 (7h1m ago)    4d7h
+etcd-master                       1/1     Running   17 (7h1m ago)   4d7h
+kube-apiserver-master             1/1     Running   21 (7h1m ago)   4d7h
+kube-controller-manager-master    1/1     Running   25 (7h1m ago)   4d7h
+kube-proxy-jkvlf                  1/1     Running   14 (7h1m ago)   4d7h
+kube-proxy-p7xtm                  1/1     Running   3 (7h ago)      4d6h
+kube-proxy-qhtlv                  1/1     Running   3 (7h1m ago)    4d6h
+kube-proxy-vmx9w                  1/1     Running   4 (7h1m ago)    4d7h
+kube-scheduler-master             1/1     Running   27 (7h1m ago)   4d7h
+metrics-server-6f66bcb644-xxf6l   1/1     Running   7 (6h59m ago)   3d20h
+
+<<설치확인 2>>
+root@master:~# kubectl get deployment metrics-server -n kube-system
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+metrics-server   1/1     1            1           3d20h
+
+<<설치확인 3>> 노드의 현재 자원 사용량(CPU·메모리)을 실시간으로 조회
+root@master:~# kubectl top nodes
+NAME       CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%   
+master     180m         4%     2545Mi          67%       
+worker01   39m          1%     1608Mi          42%       
+worker02   32m          1%     1590Mi          42%       
+worker03   33m          1%     1459Mi          38%       
