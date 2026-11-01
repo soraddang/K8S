@@ -1,0 +1,179 @@
+1.(All nodes)  설치 전  환경 설정 
+
+1) 타임존 설정 
+timedatectl set-timezone Asia/Seoul
+
+2) 방화벽 해제 
+systemctl stop ufw
+systemctl disable ufw
+ufw disable
+
+2) Swap 비활성화
+swapoff -a
+nano /etc/fstab ==> SWAP 관련 설정 모두 비활성화 
+
+3) 필수 패키지 설치
+apt-get update
+apt-get install -y apt-transport-https ca-certificates curl gpg iproute2
+
+
+2. (All nodes) 컨테이너 런타임 설치 전 사전작업 
+1) 필요한 모듈 로드
+cat <<EOF | tee /etc/modules-load.d/containerd.conf
+overlay
+br_netfilter
+EOF
+
+modprobe overlay
+modprobe br_netfilter
+
+2) iptables 설정 
+tee /etc/sysctl.d/kubernetes.conf <<EOF
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables  = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+3) 설정값 적용
+sudo sysctl --system
+
+3. (All nodes) 컨테이너 런타임 설치
+1) 도커 공식 GPG 키 추가
+apt-get update
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+2) 도커 Apt 저장소 추가 
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+3) containerd 설치
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+4) CRI 활성화 
+mkdir -p /etc/containerd
+containerd config default | tee /etc/containerd/config.toml
+
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+systemctl restart containerd
+
+4. (All nodes) K8S 설치 
+
+1) K8S GPG key와 저장소 지정 
+apt-get install curl ca-certificates apt-transport-https  -y
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+chmod a+r /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+*Docker 공식 공개키 등록하는 과정
+  - 공개키(GPG key)를 가져와 시스템에 등록 : curl -fsSL https
+  - Docker의 GPG 공개키를 읽을 수 있도록 권한 변경(저장소서명 검증이 정상적으로 동작하도록 설정) : chmod a+r
+
+
+2) Kubeadm, kubectl, kubelet 설치
+apt update
+apt install kubelet kubeadm kubectl -y
+apt-mark hold kubelet kubeadm kubectl
+
+*kubeadm	Kubernetes 클러스터 설치 및 초기 구성 도구	
+*kubelet	각 노드에서 Pod를 실제로 실행·관리하는 에이전트	
+*kubectl	클러스터를 제어하는 사용자 명령 인터페이스(CLI)
+
+[오류메세지] E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process ~~
+kill -9 PID
+dpkg --configure -a
+
+3) K8S 서비스 활성화
+systemctl daemon-reload
+systemctl restart kubelet
+systemctl enable kubelet
+
+4. [Master]  Kubeadmn을 이용한 cluster 구성
+
+1) 마스터 노드 초기화
+kubeadm init --pod-network-cidr=192.168.0.0/16
+
+<<이전 설정값으로 초기화 시 >>
+kubeadm reset -f
+rm -rf /etc/Kubernetes
+rm -rf /var/lib/etcd
+rm -rf $HOME/.kube
+rm -f /etc/kubernetes/pki/ca.crt
+
+2) Kubernetes 관리자 계정(kubectl)이 클러스터에 접근할 수 있도록 인증 설정을 연결하는 과정
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+<<확인명령어>>
+kubectl get nodes 
+
+----------------------------------------------------------------------------
+<< 생성된 토큰 값 확인 >>
+kubeadm join 192.168.10.10:6443 --token mxh567.vq5b67pvo30kh1sc \
+	--discovery-token-ca-cert-hash sha256:713abf30b0502dd416ee44cc8e8a674d8e37b2b4114c515f392595d1cf6de58d
+----------------------------------------------------------------------
+
+<토큰 재발급>
+kubeadm token list
+master  ==> kubeadm token create --print-join-command
+
+
+3) CNI "Calico(캘리코)" 설치
+** CNI(Container Network Interface) : Pod 간 통신이 가능하게 하는 인터페이스(표준 사양) 
+
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+curl https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml -O
+kubectl create -f custom-resources.yaml
+
+<<확인명령어 1>>
+kubectl get pods -n kube-system
+----------------------------------------------------------------------------------
+root@master:~# kubectl get pods -n kube-system
+NAME                             READY   STATUS    RESTARTS         AGE
+calico-node-dbjbw                0/1     Running   0                40s
+coredns-7c65d6cfc9-wc8ts         1/1     Running   0                27m
+coredns-7c65d6cfc9-x68p2         1/1     Running   0                27m
+etcd-master                      1/1     Running   14 (5m34s ago)   28m
+kube-apiserver-master            1/1     Running   18 (6m53s ago)   28m
+kube-controller-manager-master   1/1     Running   17 (7m34s ago)   28m
+kube-proxy-jkvlf                 1/1     Running   11 (4m23s ago)   27m
+kube-scheduler-master            1/1     Running   19 (6m37s ago)   28m
+--------------------------------------------------------------------------------
+또는 
+<<확인명령어 2>>
+root@master:~# kubectl get ns
+NAME               STATUS   AGE
+calico-apiserver   Active   4d7h
+calico-system      Active   4d7h
+default            Active   4d7h
+kube-node-lease    Active   4d7h
+kube-public        Active   4d7h
+kube-system        Active   4d7h
+tigera-operator    Active   4d7h
+----------------------------------------------------------------------------------
+
+<<확인명령어 3>>
+root@master:~# kubectl get nodes
+NAME     STATUS   ROLES           AGE   VERSION
+master   Ready    control-plane   27m   v1.31.13
+
+
+5. [Worker Node]  Master node와 Worker node join (Cluster 구성) 
+apt-get update && apt-get install -y conntrack
+kubeadm join 192.168.10.10:6443 --token mxh567.vq5b67pvo30kh1sc \
+	--discovery-token-ca-cert-hash sha256:713abf30b0502dd416ee44cc8e8a674d8e37b2b4114c515f392595d1cf6de58d
+
+<<이전 설정값으로 초기화 시 >>
+kubeadm reset -f
+rm -rf /etc/Kubernetes
+rm -rf /var/lib/etcd
+rm -rf $HOME/.kube
+rm -f /etc/kubernetes/pki/ca.crt
+
+6. [Master] K8S Cluster 확인 
+kubectl get nodes
