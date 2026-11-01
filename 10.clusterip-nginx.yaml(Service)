@@ -1,0 +1,70 @@
+<<clusterip-nginx.yaml>>
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clusterip-service
+spec:
+  type: ClusterIP
+  clusterIP: 10.100.100.100    
+  selector:
+    app: webui                         
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+
+---------------------------------
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clusterip-service
+spec:
+  type: ClusterIP
+  clusterIP: 10.100.100.100    //grouping VIP 
+  selector:
+    app: webui                         //label webui를 가진 pod들을 grouping
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+
+----------------------------
+1) 
+kubectl create -f deploy-nginx.yaml
+kubectl get pod -o wide 
+
+kubectl create -f clusterip-nginx.yaml
+kubectl get service 
+
+2) 
+kubectl describe svc clusterip-service
+kubectl descirbe service clusterip-service
+curl 10.100.100.100
+
+3) 웹 서버 연결 확인 : 설정 변경 후 확인 
+kubectl exec webui-~~ -it -- /bin/bash           
+cd /usr/share/nginx/html
+ls
+echo "webui #1" > index.html
+exit
+
+kubectl exec webui-2 -it -- /bin/bash           //웹 서버 설정 변경
+echo "webui #2" > /usr/share/nginx/html/index.html
+
+kubectl exec webui-3 -it -- /bin/bash           //웹 서버 설정 변경
+echo "webui #3" > /usr/share/nginx/html/index.html
+
+kubectl describe svc cluterip-service
+
+curl 10.100.100.100
+curl 10.100.100.100
+curl 10.100.100.100
+curl 10.100.100.100
+curl 10.100.100.100
+
+
+kubectl scale deployment webui  --replicas=5
+kubectl describe svc clusterip-service
