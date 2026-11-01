@@ -1,0 +1,29 @@
+<<external-name.yaml>>
+---------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: externalname-svc
+spec:
+  type: ExternalName
+  externalName: google.com
+
+------------
+클러스 내부에서 외부(external)의 도메인을 설정 
+DNS 서비스 지원
+/etc/hosts 역할 수행 
+
+Container에서 외부 서버로의 접속을 가능케 함 
+
+kubectl create -f external-name.yaml
+kubectl get svc
+
+kubectl run testpod -it --image=centos:7
+curl externalname-svc.default.svc.cluster.local
+
+*externalname-svc.default.svc.cluster.local ==> google.com으로 이동됨 
+
+<<초기화>>
+kubectl delete pod testpod
+kubectl delete deployments.apps webui
+kubectl deleete service externalname-svc
