@@ -1,0 +1,38 @@
+<<deploy-nginx.yaml>>
+-------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webui
+  template:
+    metadata:
+      name: nginx-pod
+      labels:
+        app: webui
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:1.14
+
+-----------------------
+<<Deployment 생성>>
+kubectl create -f deploy-nginx.yaml
+kubectl get pods -o wide
+kubectl get deploy,rs,pod
+
+<<pod 삭제>>
+kubectl delete pod deploy-nginx-XXXX-XXX
+
+<<replicaset 삭제>>
+kubectl get rs
+kubectl get rs deploy-nginx-XXXX
+
+<<Deployment 삭제>>
+kubectl get deploy
+kubectl delete deployment deploy-nginx
+
